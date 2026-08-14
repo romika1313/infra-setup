@@ -8,7 +8,6 @@ using '../main.bicep'
 
 param environmentName = 'prod'
 param location = 'eastus2'
-param resourceGroupName = 'rgrp-expense-prod-eus2'
 
 param sqlAdminLogin = 'sqladmin'
 // Empty here — CI injects the real value from the "prod" environment secret SQL_ADMIN_PASSWORD

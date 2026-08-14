@@ -7,7 +7,6 @@ using '../main.bicep'
 
 param environmentName = 'dev'
 param location = 'eastus2'
-param resourceGroupName = 'rgrp-expense-dev-eus2'
 
 param sqlAdminLogin = 'sqladmin'
 // Empty here — CI injects the real value from the "dev" environment secret SQL_ADMIN_PASSWORD

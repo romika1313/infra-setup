@@ -1,11 +1,10 @@
-targetScope = 'subscription'
+targetScope = 'resourceGroup'
 
 // ── Identity ────────────────────────────────────────────────────────────────
 @description('Short environment label: dev | test | prod')
 param environmentName string
 
 param location string = 'eastus2'
-param resourceGroupName string
 
 // ── SQL credentials ──────────────────────────────────────────────────────────
 param sqlAdminLogin string = 'sqladmin'
@@ -55,17 +54,9 @@ var tags = {
   managedBy: 'bicep'
 }
 
-// ── Resource Group ───────────────────────────────────────────────────────────
-resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
-  name: resourceGroupName
-  location: location
-  tags: tags
-}
-
 // ── App Insights + Log Analytics ─────────────────────────────────────────────
 module appInsights './modules/app-insights.bicep' = {
   name: 'appInsights'
-  scope: rg
   params: {
     name: appInsightsName
     location: location
@@ -76,7 +67,6 @@ module appInsights './modules/app-insights.bicep' = {
 // ── Key Vault ────────────────────────────────────────────────────────────────
 module keyVault './modules/key-vault.bicep' = {
   name: 'keyVault'
-  scope: rg
   params: {
     name: keyVaultName
     location: location
@@ -87,7 +77,6 @@ module keyVault './modules/key-vault.bicep' = {
 // ── Storage ──────────────────────────────────────────────────────────────────
 module storage './modules/storage.bicep' = {
   name: 'storage'
-  scope: rg
   params: {
     name: storageAccountName
     location: location
@@ -99,7 +88,6 @@ module storage './modules/storage.bicep' = {
 // ── Azure SQL ────────────────────────────────────────────────────────────────
 module sql './modules/sql.bicep' = {
   name: 'sql'
-  scope: rg
   params: {
     serverName: sqlServerName
     databaseName: sqlDatabaseName
@@ -117,7 +105,6 @@ module sql './modules/sql.bicep' = {
 // ── Document Intelligence ────────────────────────────────────────────────────
 module docIntelligence './modules/document-intelligence.bicep' = {
   name: 'documentIntelligence'
-  scope: rg
   params: {
     name: docIntName
     location: location
@@ -129,7 +116,6 @@ module docIntelligence './modules/document-intelligence.bicep' = {
 // ── Azure OpenAI ─────────────────────────────────────────────────────────────
 module openAi './modules/openai.bicep' = {
   name: 'openAi'
-  scope: rg
   params: {
     name: openAiName
     location: location
@@ -144,7 +130,6 @@ module openAi './modules/openai.bicep' = {
 // ── Azure Maps ───────────────────────────────────────────────────────────────
 module maps './modules/maps.bicep' = {
   name: 'maps'
-  scope: rg
   params: {
     name: mapsName
     location: location
@@ -155,7 +140,6 @@ module maps './modules/maps.bicep' = {
 // ── App Service (depends on Key Vault URI and App Insights) ──────────────────
 module appService './modules/app-service.bicep' = {
   name: 'appService'
-  scope: rg
   params: {
     planName: appServicePlanName
     siteName: appServiceName
@@ -177,7 +161,6 @@ module appService './modules/app-service.bicep' = {
 // Runs after appService (needs principalId) and keyVault/storage (needs names)
 module rbac './modules/rbac.bicep' = {
   name: 'rbac'
-  scope: rg
   params: {
     keyVaultName: keyVault.outputs.name
     storageAccountName: storage.outputs.name
@@ -192,7 +175,6 @@ module rbac './modules/rbac.bicep' = {
 // Runs after rbac so the deployment identity can write secrets.
 module kvSecrets './modules/kv-secrets.bicep' = {
   name: 'kvSecrets'
-  scope: rg
   dependsOn: [rbac]
   params: {
     keyVaultName: keyVault.outputs.name
