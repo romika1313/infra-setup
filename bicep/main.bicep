@@ -5,6 +5,8 @@ targetScope = 'resourceGroup'
 param environmentName string
 
 param location string = 'eastus2'
+// App Service quota only exists in Central US on this subscription (matches POC)
+param appServiceLocation string = location
 
 // ── SQL credentials ──────────────────────────────────────────────────────────
 param sqlAdminLogin string = 'sqladmin'
@@ -154,7 +156,7 @@ module appService './modules/app-service.bicep' = {
   params: {
     planName: appServicePlanName
     siteName: appServiceName
-    location: location
+    location: appServiceLocation
     tags: tags
     planSkuName: appServicePlanSku
     planSkuTier: appServicePlanTier
