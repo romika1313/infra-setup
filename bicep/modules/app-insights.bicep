@@ -1,6 +1,7 @@
 param name string
 param location string
 param tags object = {}
+param retentionDays int = 30
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: 'log-${name}'
@@ -8,7 +9,7 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   tags: tags
   properties: {
     sku: { name: 'PerGB2018' }
-    retentionInDays: 30
+    retentionInDays: retentionDays
   }
 }
 

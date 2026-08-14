@@ -35,6 +35,13 @@ param sqlBackupRedundancy string = 'Local'
 param storageSkuName string = 'Standard_LRS'
 param docIntSkuName string = 'F0'
 
+// ── Storage options ───────────────────────────────────────────────────────────
+param storageContainerName string = 'receipts'
+param blobSoftDeleteDays int = 7
+
+// ── Monitoring options ───────────────────────────────────────────────────────
+param logRetentionDays int = 30
+
 // ── Derived names (consistent across all environments) ───────────────────────
 var abbr = 'eus2'
 var appInsightsName          = 'appi-expense-${environmentName}-${abbr}'
@@ -61,6 +68,7 @@ module appInsights './modules/app-insights.bicep' = {
     name: appInsightsName
     location: location
     tags: tags
+    retentionDays: logRetentionDays
   }
 }
 
@@ -82,6 +90,8 @@ module storage './modules/storage.bicep' = {
     location: location
     tags: tags
     skuName: storageSkuName
+    containerName: storageContainerName
+    blobSoftDeleteDays: blobSoftDeleteDays
   }
 }
 
@@ -154,6 +164,7 @@ module appService './modules/app-service.bicep' = {
     docIntelligenceEndpoint: docIntelligence.outputs.endpoint
     openAiEndpoint: openAi.outputs.endpoint
     openAiDeploymentName: openAiDeploymentName
+    storageContainerName: storageContainerName
   }
 }
 

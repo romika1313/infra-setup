@@ -14,6 +14,7 @@ param azureTenantId string
 param docIntelligenceEndpoint string
 param openAiEndpoint string
 param openAiDeploymentName string = 'gpt-4o-mini'
+param storageContainerName string = 'receipts'
 
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
@@ -50,7 +51,7 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
         // ---- Runtime config (not secrets) ----
         { name: 'NODE_ENV',                          value: 'production' }
         { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT',    value: 'false' }
-        { name: 'AZURE_STORAGE_CONTAINER',           value: 'receipts' }
+        { name: 'AZURE_STORAGE_CONTAINER',           value: storageContainerName }
         { name: 'ALLOW_MOCK_AUTH',                   value: 'false' }
         { name: 'DIRECTORY_MOCK',                    value: 'false' }
         { name: 'OCR_PROVIDER',                      value: 'document-intelligence' }

@@ -3,6 +3,7 @@ param location string
 param tags object = {}
 param skuName string = 'Standard_LRS'
 param containerName string = 'receipts'
+param blobSoftDeleteDays int = 7
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: name
@@ -21,8 +22,8 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01'
   parent: storageAccount
   name: 'default'
   properties: {
-    deleteRetentionPolicy: { enabled: true, days: 7 }
-    containerDeleteRetentionPolicy: { enabled: true, days: 7 }
+    deleteRetentionPolicy: { enabled: true, days: blobSoftDeleteDays }
+    containerDeleteRetentionPolicy: { enabled: true, days: blobSoftDeleteDays }
   }
 }
 
