@@ -1,0 +1,207 @@
+# Infrastructure deployment pipeline — Bicep → Azure
+#
+# ── OIDC SETUP (one-time, before this workflow can run) ─────────────────────
+# 1. In Azure Portal → Entra ID → App registrations → New registration
+#    Name: "expense-infra-github-actions"
+#    Leave redirect URI blank → Register
+#
+# 2. Note the Application (client) ID and Directory (tenant) ID.
+#
+# 3. On the app registration → Certificates & secrets → Federated credentials
+#    Add ONE credential for each environment + the validate/what-if job:
+#
+#    | GitHub entity   | Subject                                                    | Use                   |
+#    |-----------------|------------------------------------------------------------|-----------------------|
+#    | Environment     | repo:romika1313/infra-setup:environment:validate           | validate + what-if    |
+#    | Environment     | repo:romika1313/infra-setup:environment:dev                | deploy DEV            |
+#    | Environment     | repo:romika1313/infra-setup:environment:test               | deploy TEST           |
+#    | Environment     | repo:romika1313/infra-setup:environment:prod               | deploy PROD           |
+#
+# 4. In Azure Portal → Subscriptions → 5afac646-... → Access control (IAM)
+#    Add role assignment:
+#      Role: Owner   (needed to create RBAC assignments inside Bicep)
+#      Assign to: the app registration service principal
+#
+# 5. In GitHub → romika1313/infra-setup → Settings → Environments
+#    Create: validate, dev, test, prod
+#    On "prod" environment: add a Required reviewers protection rule (approval gate)
+#
+# 6. In GitHub → Settings → Secrets and variables → Actions → Secrets
+#    AZURE_CLIENT_ID      = Application (client) ID from step 2
+#    AZURE_TENANT_ID      = Directory (tenant) ID from step 2
+#    AZURE_SUBSCRIPTION_ID = 5afac646-8a2a-4662-90df-0d34a9775af8
+#    SQL_ADMIN_PASSWORD_DEV  = (generate a strong password, store here)
+#    SQL_ADMIN_PASSWORD_TEST = (separate strong password)
+#    SQL_ADMIN_PASSWORD_PROD = (separate strong password)
+#
+# ── AFTER FIRST DEPLOY — manual Key Vault secrets ───────────────────────────
+# The pipeline auto-populates: storage-connection-string, database-url,
+# document-intelligence-key, azure-openai-api-key, azure-maps-key
+#
+# You MUST manually add these to each Key Vault before the app can start:
+#   nextauth-secret       → generate: openssl rand -base64 32
+#   azure-ad-client-secret → from the Entra app registration for the expense app
+#   ingest-shared-secret   → any random value (used to authenticate Power Automate calls)
+#   digest-shared-secret   → any random value
+# ────────────────────────────────────────────────────────────────────────────
+
+name: Infrastructure Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bicep/**'
+      - '.github/workflows/infra-deploy.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'bicep/**'
+      - '.github/workflows/infra-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options: [dev, test, prod]
+
+permissions:
+  id-token: write  # required for OIDC token exchange
+  contents: read
+
+jobs:
+  # ── Validate: always runs (PR and push) ─────────────────────────────────────
+  # What it does: checks Bicep syntax and validates against Azure ARM APIs.
+  # What it does NOT do: make any changes to Azure.
+  validate:
+    name: Validate Bicep
+    runs-on: ubuntu-latest
+    environment: validate
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Validate DEV template
+        run: |
+          az deployment sub validate \
+            --location eastus2 \
+            --template-file bicep/main.bicep \
+            --parameters bicep/params/dev.bicepparam \
+            --parameters sqlAdminPassword="ValidateOnly#1" \
+            --output table
+
+  # ── What-If: only on pull requests ──────────────────────────────────────────
+  # What it does: shows exactly what Azure WILL change if this PR is merged.
+  # This is your review step — read this output before approving the PR.
+  what-if:
+    name: What-If (DEV)
+    runs-on: ubuntu-latest
+    environment: validate
+    needs: validate
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: What-If against DEV
+        run: |
+          az deployment sub what-if \
+            --location eastus2 \
+            --template-file bicep/main.bicep \
+            --parameters bicep/params/dev.bicepparam \
+            --parameters sqlAdminPassword="WhatIfOnly#1" \
+            --result-format FullResourcePayloads
+
+  # ── Deploy DEV: runs on merge to main ────────────────────────────────────────
+  # What it does: creates/updates all Azure resources in rgrp-expense-dev-eus2.
+  # Runs automatically after PR is merged — no manual approval needed for DEV.
+  deploy-dev:
+    name: Deploy DEV
+    runs-on: ubuntu-latest
+    environment: dev
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to DEV
+        run: |
+          az deployment sub create \
+            --location eastus2 \
+            --template-file bicep/main.bicep \
+            --parameters bicep/params/dev.bicepparam \
+            --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD_DEV }}" \
+            --output table
+
+  # ── Deploy TEST: runs after DEV succeeds ─────────────────────────────────────
+  deploy-test:
+    name: Deploy TEST
+    runs-on: ubuntu-latest
+    environment: test
+    needs: deploy-dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to TEST
+        run: |
+          az deployment sub create \
+            --location eastus2 \
+            --template-file bicep/main.bicep \
+            --parameters bicep/params/test.bicepparam \
+            --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD_TEST }}" \
+            --output table
+
+  # ── Deploy PROD: requires manual approval ────────────────────────────────────
+  # The "prod" GitHub Environment has a Required reviewers protection rule.
+  # GitHub will pause here and send an email to the reviewers before proceeding.
+  deploy-prod:
+    name: Deploy PROD
+    runs-on: ubuntu-latest
+    environment: prod
+    needs: deploy-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to PROD
+        run: |
+          az deployment sub create \
+            --location eastus2 \
+            --template-file bicep/main.bicep \
+            --parameters bicep/params/prod.bicepparam \
+            --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD_PROD }}" \
+            --output table
