@@ -27,7 +27,9 @@ param sqlBackupRedundancy = 'Local'
 param storageSkuName = 'Standard_LRS'
 
 // Document Intelligence: free tier (500 pages/month)
-param docIntSkuName = 'F0'
+# F0 (free) blocked — subscription already has one free FormRecognizer account (the POC).
+# S0 is pay-per-use; at dev usage it costs pennies.
+param docIntSkuName = 'S0'
 
 // OpenAI
 param openAiDeploymentName = 'gpt-4o-mini'

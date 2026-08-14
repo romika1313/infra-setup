@@ -21,7 +21,7 @@ param sqlSkuCapacity = 5
 param sqlBackupRedundancy = 'Local'
 
 param storageSkuName = 'Standard_LRS'
-param docIntSkuName = 'F0'
+param docIntSkuName = 'S0'
 
 param openAiDeploymentName = 'gpt-4o-mini'
 param openAiModelVersion = '2024-07-18'
