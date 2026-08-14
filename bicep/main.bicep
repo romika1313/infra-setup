@@ -45,7 +45,8 @@ param logRetentionDays int = 30
 // ── Derived names (consistent across all environments) ───────────────────────
 var abbr = 'eus2'
 var appInsightsName          = 'appi-expense-${environmentName}-${abbr}'
-var keyVaultName             = 'kv-expense-${environmentName}-${abbr}'
+// kv- prefix + exphub (globally unique) + env + region
+var keyVaultName             = 'kv-exphub-${environmentName}-${abbr}'
 var storageAccountName       = 'stexpense${environmentName}${abbr}'
 var sqlServerName            = 'sql-expense-${environmentName}-${abbr}'
 var sqlDatabaseName          = 'expense-hub-${environmentName}'
