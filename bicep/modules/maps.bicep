@@ -1,5 +1,5 @@
 param name string
-param location string
+param location string = 'eastus'
 param tags object = {}
 
 resource mapsAccount 'Microsoft.Maps/accounts@2023-06-01' = {

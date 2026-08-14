@@ -142,7 +142,7 @@ module maps './modules/maps.bicep' = {
   name: 'maps'
   params: {
     name: mapsName
-    location: location
+    location: 'eastus'
     tags: tags
   }
 }
