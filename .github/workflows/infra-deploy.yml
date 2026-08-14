@@ -26,9 +26,16 @@
 #   expense-hub-infra-test:  same, Environment name: test | Name: gh-env-test
 #   expense-hub-infra-prod:  same, Environment name: prod | Name: gh-env-prod
 #
-# ── Step 3: Assign Owner on each resource group to its registration ──────────
-# The resource groups are created automatically on first pipeline run.
-# After the first run creates them, assign roles:
+# ── Step 3: Pre-create the 3 resource groups (one-time, you do this manually) ─
+# The pipeline's service principals only have RG-level Owner — they cannot
+# create the RGs themselves. Run these once in Azure Cloud Shell or locally:
+#
+#   az group create --name rgrp-expense-dev-eus2  --location eastus2
+#   az group create --name rgrp-expense-test-eus2 --location eastus2
+#   az group create --name rgrp-expense-prod-eus2 --location eastus2
+#
+# ── Step 4: Assign Owner on each resource group to its registration ──────────
+# After creating the RGs in step 3:
 #
 #   rgrp-expense-dev-eus2  → IAM → Owner → expense-hub-infra-dev  service principal
 #   rgrp-expense-test-eus2 → IAM → Owner → expense-hub-infra-test service principal
@@ -106,7 +113,9 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Ensure DEV resource group exists
-        run: az group create --name rgrp-expense-dev-eus2 --location eastus2 --tags environment=dev application=expense-hub managedBy=bicep
+        # RG must be pre-created manually — see setup instructions above.
+        # This step fails loudly if the RG is missing rather than silently misdeploying.
+        run: az group show --name rgrp-expense-dev-eus2 --output none
 
       - name: Validate DEV template
         run: |
@@ -167,7 +176,6 @@ jobs:
       - name: Deploy to DEV
         run: |
           SP_OID=$(az ad sp show --id "${{ secrets.AZURE_CLIENT_ID }}" --query id -o tsv)
-          az group create --name rgrp-expense-dev-eus2 --location eastus2 --tags environment=dev application=expense-hub managedBy=bicep
           az deployment group create \
             --resource-group rgrp-expense-dev-eus2 \
             --template-file bicep/main.bicep \
@@ -195,7 +203,6 @@ jobs:
       - name: Deploy to TEST
         run: |
           SP_OID=$(az ad sp show --id "${{ secrets.AZURE_CLIENT_ID }}" --query id -o tsv)
-          az group create --name rgrp-expense-test-eus2 --location eastus2 --tags environment=test application=expense-hub managedBy=bicep
           az deployment group create \
             --resource-group rgrp-expense-test-eus2 \
             --template-file bicep/main.bicep \
@@ -225,7 +232,6 @@ jobs:
       - name: Deploy to PROD
         run: |
           SP_OID=$(az ad sp show --id "${{ secrets.AZURE_CLIENT_ID }}" --query id -o tsv)
-          az group create --name rgrp-expense-prod-eus2 --location eastus2 --tags environment=prod application=expense-hub managedBy=bicep
           az deployment group create \
             --resource-group rgrp-expense-prod-eus2 \
             --template-file bicep/main.bicep \
