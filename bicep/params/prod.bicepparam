@@ -30,6 +30,6 @@ param storageSkuName = 'Standard_GRS'
 // S0: paid tier, no page cap
 param docIntSkuName = 'S0'
 
-param openAiDeploymentName = 'gpt-4o-mini'
-param openAiModelVersion = '2024-07-18'
+param openAiDeploymentName = 'gpt-5-mini'
+param openAiModelVersion = '2025-08-07'
 param openAiCapacity = 30

@@ -2,9 +2,9 @@ param name string
 param location string
 param tags object = {}
 param skuName string = 'S0'
-param deploymentName string = 'gpt-4o-mini'
-param modelName string = 'gpt-4o-mini'
-param modelVersion string = '2024-07-18'
+param deploymentName string = 'gpt-5-mini'
+param modelName string = 'gpt-5-mini'
+param modelVersion string = '2025-08-07'
 // capacity unit = thousands of tokens per minute (TPM); 10 = 10K TPM
 param capacity int = 10
 
