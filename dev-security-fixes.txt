@@ -1,0 +1,81 @@
+SECURITY FIXES REQUIRED — acct-exp-hub
+=======================================
+Date: 2026-08-17
+
+The following hardcoded API keys and secrets must be replaced with Azure
+Managed Identity before the app goes to production. The infrastructure already
+has the correct RBAC roles assigned — no Azure changes needed on your end.
+
+
+1. AZURE BLOB STORAGE — lib/storage.ts
+---------------------------------------
+REMOVE: AZURE_STORAGE_CONNECTION_STRING (AccountKey-based)
+ADD:    AZURE_STORAGE_ACCOUNT_NAME (just the account name, not a secret)
+
+Replace: BlobServiceClient.fromConnectionString(...)
+With:    new BlobServiceClient(`https://${accountName}.blob.core.windows.net`, new DefaultAzureCredential())
+
+Also update: isBlobEnabled() check, verify-storage.mjs, seed-with-receipts.mjs
+Package needed: @azure/identity (if not already installed)
+
+
+2. AZURE OPENAI — lib/duplicate-judge.ts
+-----------------------------------------
+REMOVE: AZURE_OPENAI_API_KEY, AZURE_OPENAI_OAUTH_* env vars
+ADD:    Use DefaultAzureCredential to get a token for scope:
+        https://cognitiveservices.azure.com/.default
+
+Replace authHeaders() with:
+  const credential = new DefaultAzureCredential();
+  const token = await credential.getToken("https://cognitiveservices.azure.com/.default");
+  return { Authorization: `Bearer ${token.token}` }
+
+
+3. DOCUMENT INTELLIGENCE — lib/ocr-document-intelligence.ts
+-------------------------------------------------------------
+REMOVE: DOCUMENT_INTELLIGENCE_KEY env var
+
+Replace: new DocumentAnalysisClient(endpoint, new AzureKeyCredential(key))
+With:    new DocumentAnalysisClient(endpoint, new DefaultAzureCredential())
+
+Package needed: @azure/identity (same install as above)
+
+
+4. AZURE MAPS — lib/maps.ts
+-----------------------------
+REMOVE: AZURE_MAPS_KEY env var
+
+Replace key-based auth with DefaultAzureCredential:
+  const credential = new DefaultAzureCredential();
+  const token = await credential.getToken("https://atlas.microsoft.com/.default");
+  // Pass as: Authorization: `Bearer ${token.token}` in request headers
+
+
+5. DEV ENDPOINT — app/api/dev/users/route.ts
+----------------------------------------------
+Add this at the top of the route handler:
+
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+
+6. BUILD FLAG — CI workflow (azure-app-service.yml)
+-----------------------------------------------------
+The NEXT_PUBLIC_ALLOW_MOCK_AUTH flag is compiled into the bundle at build time.
+For TEST and PROD builds, add this to the build step:
+
+  env:
+    NEXT_PUBLIC_ALLOW_MOCK_AUTH: "false"
+
+Setting ALLOW_MOCK_AUTH=false in App Service settings alone is NOT enough.
+
+
+NOTES
+-----
+- DefaultAzureCredential works automatically on Azure App Service because
+  the App Service has a System-Assigned Managed Identity.
+- For local development, DefaultAzureCredential falls back to your az login
+  credentials — no code change needed for local dev.
+- AZURE_AD_CLIENT_SECRET is still required for NextAuth user sign-in (lib/auth.ts).
+  Do NOT remove that one.

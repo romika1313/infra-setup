@@ -226,4 +226,3 @@ When the developer completes items 1–4, the following RBAC role assignments mu
 | OpenAI account | `Cognitive Services OpenAI User` ← needs to be added |
 | Document Intelligence account | `Cognitive Services User` ← needs to be added |
 | Azure Maps account | `Azure Maps Data Reader` ← needs to be added |
-| Microsoft Graph (via Entra admin consent) | `User.Read.All` application permission ← separate step |

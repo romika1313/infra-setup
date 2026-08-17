@@ -5,6 +5,9 @@
 
 param keyVaultName string
 param storageAccountName string
+param openAiName string
+param docIntelligenceName string
+param mapsName string
 param appServicePrincipalId string
 // Object ID of the GitHub Actions service principal (not the client ID)
 param deployingPrincipalId string = ''
@@ -17,12 +20,30 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
   name: storageAccountName
 }
 
+resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-05-01' existing = {
+  name: openAiName
+}
+
+resource docIntAccount 'Microsoft.CognitiveServices/accounts@2023-05-01' existing = {
+  name: docIntelligenceName
+}
+
+resource mapsAccount 'Microsoft.Maps/accounts@2023-06-01' existing = {
+  name: mapsName
+}
+
 // Key Vault Secrets User: read secrets (cannot manage them)
 var kvSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6'
 // Key Vault Secrets Officer: read + write secrets (needed by the deploying principal)
 var kvSecretsOfficerRoleId = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
 // Storage Blob Data Contributor: read/write blobs (receipts, map images)
 var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+// Cognitive Services OpenAI User: call OpenAI inference endpoints
+var cognitiveServicesOpenAiUserRoleId = '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+// Cognitive Services User: call Document Intelligence (FormRecognizer) endpoints
+var cognitiveServicesUserRoleId = 'a97b65f3-24c7-4388-baec-2e87135dc908'
+// Azure Maps Data Reader: geocode and routing API calls
+var mapsDataReaderRoleId = '423170ca-a8f6-4b0f-8487-9e4eb8f49bfa'
 
 resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(kv.id, appServicePrincipalId, kvSecretsUserRoleId)
@@ -39,6 +60,36 @@ resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-
   scope: storage
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataContributorRoleId)
+    principalId: appServicePrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource openAiRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(openAiAccount.id, appServicePrincipalId, cognitiveServicesOpenAiUserRoleId)
+  scope: openAiAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', cognitiveServicesOpenAiUserRoleId)
+    principalId: appServicePrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource docIntRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(docIntAccount.id, appServicePrincipalId, cognitiveServicesUserRoleId)
+  scope: docIntAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', cognitiveServicesUserRoleId)
+    principalId: appServicePrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource mapsRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(mapsAccount.id, appServicePrincipalId, mapsDataReaderRoleId)
+  scope: mapsAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', mapsDataReaderRoleId)
     principalId: appServicePrincipalId
     principalType: 'ServicePrincipal'
   }

@@ -178,6 +178,9 @@ module rbac './modules/rbac.bicep' = {
   params: {
     keyVaultName: keyVault.outputs.name
     storageAccountName: storage.outputs.name
+    openAiName: openAi.outputs.name
+    docIntelligenceName: docIntelligence.outputs.name
+    mapsName: maps.outputs.name
     appServicePrincipalId: appService.outputs.principalId
     deployingPrincipalId: deployingPrincipalId
   }
